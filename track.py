@@ -39,6 +39,9 @@ from yolov7.utils.plots import plot_one_box,put_line_middle
 from strong_sort.utils.parser import get_config
 from strong_sort.strong_sort import StrongSORT
 
+from PyTorch_UnderwaterImageEnhancement.model import PhysicalNN
+from torchvision import transforms
+
 
 VID_FORMATS = 'asf', 'avi', 'gif', 'm4v', 'mkv', 'mov', 'mp4', 'mpeg', 'mpg', 'ts', 'wmv'  # include video suffixes
 
@@ -120,6 +123,24 @@ def run(
     # initialize StrongSORT
     cfg = get_config()
     cfg.merge_from_file(opt.config_strongsort)
+    
+    # ImageEnhancement
+    # Load model
+    checkpoint = "./PyTorch_UnderwaterImageEnhancement/checkpoints/model_best_2842.pth.tar"
+    model_enc = PhysicalNN()
+    model_enc = torch.nn.DataParallel(model_enc).to(device)
+    print("=> loading trained model")
+    checkpoint = torch.load(checkpoint, map_location=device)
+    model_enc.load_state_dict(checkpoint['state_dict'])
+    print("=> loaded model at epoch {}".format(checkpoint['epoch']))
+    model_enc = model_enc.module
+    model_enc.eval()
+
+    testtransform = transforms.Compose([
+                transforms.ToTensor(),
+            ])
+    unloader = transforms.ToPILImage()
+
 
     # Create as many strong sort instances as there are video sources
     strongsort_list = []
@@ -189,7 +210,12 @@ def run(
                 else:
                     txt_file_name = p.parent.name  # get folder name containing current img
                     save_path = str(save_dir / p.parent.name)  # im.jpg, vid.mp4, ...
-
+                    
+            inp = testtransform(im0).unsqueeze(0)
+            inp = inp.to(device)
+            out = model_enc(inp)
+            corrected = unloader(out.cpu().squeeze(0))
+            im0 = np.array(corrected)
             curr_frames[i] = im0
 
             txt_path = str(save_dir / 'tracks' / txt_file_name)  # im.txt
@@ -275,7 +301,7 @@ def run(
                 cv2.putText(im0, f'FPS : '+str(int(fps)), (20,70), cv2.FONT_HERSHEY_PLAIN, 2, (0,255,0),2)
                 put_line_middle(im0,im0.shape)
                 box_left = [x for x in outputs[i][0:4] if int(x[0]+x[2]/2) < ((im0.shape[1]/2)+75)]
-                box_right = [x for x in outputs[i][0:4] if (int(x[0]+x[2]/2) > ((im0.shape[1]/2)+75)) and x not in box_left] 
+                box_right = [x for x in outputs[i][0:4] if (int(x[0]+x[2]/2) > ((im0.shape[1]/2)+75)) and (x not in box_left)] 
                 cv2.putText(im0, f'KIRI : '+str(len(box_left)), (550,im0.shape[0]-430), cv2.FONT_HERSHEY_PLAIN, 1, (0,255,0),2)
                 cv2.putText(im0, f'KANAN : '+str(len(box_right)), (550,im0.shape[0]-410), cv2.FONT_HERSHEY_PLAIN, 1, (0,255,0),2)
                 # print(f"Left -- {len(box_left)}")                           

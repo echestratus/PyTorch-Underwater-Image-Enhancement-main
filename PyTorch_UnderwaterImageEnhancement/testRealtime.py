@@ -40,7 +40,7 @@ def main(checkpoint):
             ])
     unloader = transforms.ToPILImage()
 
-    cap = cv2.VideoCapture(1)
+    cap = cv2.VideoCapture(0)
     while(True):
         ret, frame = cap.read()
 
@@ -50,7 +50,7 @@ def main(checkpoint):
 
         corrected = unloader(out.cpu().squeeze(0))
         frames = np.array(corrected)
-
+        print(frames.shape)
         cv2.imshow('imageenhancement',frames)
         cv2.imshow('original',frame)
 
@@ -79,4 +79,4 @@ if __name__ == '__main__':
     # parser.add_argument('--checkpoint', help='checkpoints path', required=True)
     # args = parser.parse_args()
     # checkpoint = args.checkpoint
-    main(checkpoint=r'D:/Experiment/PyTorch-Underwater-Image-Enhancement-main/checkpoints/model_best_2842.pth.tar')
+    main(checkpoint=r'PyTorch-Underwater-Image-Enhancement-main/PyTorch_UnderwaterImageEnhancement/checkpoints/model_best_2842.pth.tar')

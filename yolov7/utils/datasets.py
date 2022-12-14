@@ -30,6 +30,9 @@ from utils.general import check_requirements, xyxy2xywh, xywh2xyxy, xywhn2xyxy, 
     resample_segments, clean_str
 from utils.torch_utils import torch_distributed_zero_first
 
+from PyTorch_UnderwaterImageEnhancement.model import PhysicalNN
+from torchvision import transforms
+
 # Parameters
 help_url = 'https://github.com/ultralytics/yolov5/wiki/Train-Custom-Data'
 img_formats = ['bmp', 'jpg', 'jpeg', 'png', 'tif', 'tiff', 'dng', 'webp', 'mpo']  # acceptable image suffixes
@@ -264,11 +267,28 @@ class LoadWebcam:  # for inference
 
 
 class LoadStreams:  # multiple IP or RTSP cameras
-    def __init__(self, sources='streams.txt', img_size=640, stride=32):
+    def __init__(self, sources='streams.txt', img_size=640, stride=32,checkpoint = None):
         self.mode = 'stream'
         self.img_size = img_size
         self.stride = stride
+        self.checkpoint = checkpoint
+        
+         # ImageEnhance
+        # device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        # model = PhysicalNN()
+        # model = torch.nn.DataParallel(model).to(device)
+        # print("=> loading trained model")
+        # checkpoint = torch.load(checkpoint, map_location=device)
+        # model.load_state_dict(checkpoint['state_dict'])
+        # print("=> loaded model at epoch {}".format(checkpoint['epoch']))
+        # model = model.module
+        # model.eval()
 
+        # testtransform = transforms.Compose([
+        #             transforms.ToTensor(),
+        #         ])
+        # unloader = transforms.ToPILImage()
+        
         if os.path.isfile(sources):
             with open(sources, 'r') as f:
                 sources = [x.strip() for x in f.read().strip().splitlines() if len(x.strip())]
@@ -337,7 +357,6 @@ class LoadStreams:  # multiple IP or RTSP cameras
         # Convert
         img = img[:, :, :, ::-1].transpose(0, 3, 1, 2)  # BGR to RGB, to bsx3x416x416
         img = np.ascontiguousarray(img)
-
         return self.sources, img, img0, None
 
     def __len__(self):
