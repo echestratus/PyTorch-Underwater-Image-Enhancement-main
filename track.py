@@ -305,8 +305,6 @@ def run(
                 box_right = [x for x in outputs[i][0:4] if (int(x[0]+x[2]/2) > ((im0.shape[1]/2)+75))] 
                 cv2.putText(im0, f'KIRI : '+str(len(box_left)), (550,im0.shape[0]-430), cv2.FONT_HERSHEY_PLAIN, 1, (0,255,0),2)
                 cv2.putText(im0, f'KANAN : '+str(len(box_right)), (550,im0.shape[0]-410), cv2.FONT_HERSHEY_PLAIN, 1, (0,255,0),2)
-                # print(f"Left -- {len(box_left)}")                           
-                # print(f"Right -- {len(box_right)}")
                 
             # Stream resultss
             if show_vid:
