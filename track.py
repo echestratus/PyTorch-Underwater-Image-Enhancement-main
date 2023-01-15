@@ -245,25 +245,11 @@ def run(
 
                 # draw boxes for visualization
                 if len(outputs[i]) > 0:
-                    # shape_frame
-                    # print(im.shape[1]/2)
-                    # box_left = [x for x in outputs[i][0:4] if int(x[0]+x[2]/2) < im0.shape[1]/2]
-                    # box_right = [x for x in outputs[i][0:4] if int(x[0]+x[2]/2) > im0.shape[1]/2]
                     for j, (output, conf) in enumerate(zip(outputs[i], confs)):
                         bboxes = output[0:4]
                         cv2.circle(img=im0,center=(int((bboxes[0]+bboxes[2])/2),int((bboxes[1]+bboxes[3])/2)),radius=3,color=(0, 0, 255), thickness=1)
                         id = output[4]
                         cls = output[5]
-                        # print(int((bboxes[0]+bboxes[2])/2))
-                        # print(im0.shape[0]/2)
-                        # print(im0.shape)
-                        # if int((bboxes[0]+bboxes[2])/2) > 0  :
-                            
-                           
-                            # print(box_left[i])
-                            # print(im0.shape[1]/2)
-                            
-                            
                         if save_txt:
                             # to MOT format
                             bbox_left = output[0]
@@ -286,8 +272,12 @@ def run(
                                 txt_file_name = txt_file_name if (isinstance(path, list) and len(path) > 1) else ''
                                 save_one_box(bboxes, imc, file=save_dir / 'crops' / txt_file_name / names[c] / f'{id}' / f'{p.stem}.jpg', BGR=True)
 
-                # print(im0.shape[0])
-                # print(f'{s}Done. YOLO:({t3 - t2:.3f}s), StrongSORT:({t5 - t4:.3f}s)')
+                # box_left = [x for x in outputs[i][0:4] if (int(x[0]+x[2]/2) <= ((im0.shape[1]/2)+75))]
+                # box_right = [x for x in outputs[i][0:4] if (int(x[0]+x[2]/2) > ((im0.shape[1]/2)+75))]
+                # total = len(box_left)+len(box_right)
+                # cv2.putText(im0, f'KIRI : '+str(len(box_left)),(480,60), cv2.FONT_HERSHEY_PLAIN, 1.5, (0,0,255),2)
+                # cv2.putText(im0, f'KANAN : '+str(len(box_right)), (480,85), cv2.FONT_HERSHEY_PLAIN, 1.5, (0,0,255),2)
+                # cv2.putText(im0, f'TOTAL : '+str(total), (480,110), cv2.FONT_HERSHEY_PLAIN, 1.5, (0,0,255),2)
 
             else:
                 strongsort_list[i].increment_ages()
@@ -300,15 +290,20 @@ def run(
                 t0= currentTime
                 cv2.putText(im0, f'FPS : '+str(int(fps)), (20,70), cv2.FONT_HERSHEY_PLAIN, 2, (0,255,0),2)
                 put_line_middle(im0,im0.shape)
-                box_left = [x for x in outputs[i][0:4] if int(x[0]+x[2]/2) < ((im0.shape[1]/2)+75)]
-                # and (x not in box_left)
-                box_right = [x for x in outputs[i][0:4] if (int(x[0]+x[2]/2) > ((im0.shape[1]/2)+75))] 
-                cv2.putText(im0, f'KIRI : '+str(len(box_left)), (550,im0.shape[0]-430), cv2.FONT_HERSHEY_PLAIN, 1, (0,255,0),2)
-                cv2.putText(im0, f'KANAN : '+str(len(box_right)), (550,im0.shape[0]-410), cv2.FONT_HERSHEY_PLAIN, 1, (0,255,0),2)
+                if outputs[i] is None:
+                    box_left = []
+                    box_right = []
+                else :
+                    box_left = [x for x in outputs[i][0:4] if (int(x[0]+x[2]/2) <= ((im0.shape[1]/2)+75))]
+                    box_right = [x for x in outputs[i][0:4] if (int(x[0]+x[2]/2) > ((im0.shape[1]/2)+75))]
+                total = len(box_left)+len(box_right)
+                cv2.putText(im0, f'KIRI : '+str(len(box_left)),(480,60), cv2.FONT_HERSHEY_PLAIN, 1.5, (0,0,255),2)
+                cv2.putText(im0, f'KANAN : '+str(len(box_right)), (480,85), cv2.FONT_HERSHEY_PLAIN, 1.5, (0,0,255),2)
+                cv2.putText(im0, f'TOTAL : '+str(total), (480,110), cv2.FONT_HERSHEY_PLAIN, 1.5, (0,0,255),2)
                 
             # Stream resultss
             if show_vid:
-                cv2.imshow(str(p), im0)
+                cv2.imshow(f"LAYAR", im0)
                 cv2.waitKey(1)  # 1 millisecond
 
             # Save results (image with detections)
