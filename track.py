@@ -294,8 +294,8 @@ def run(
                     box_left = []
                     box_right = []
                 else :
-                    box_left = [x for x in outputs[i][0:4] if (int(x[0]+x[2]/2) <= ((im0.shape[1]/2)+75))]
-                    box_right = [x for x in outputs[i][0:4] if (int(x[0]+x[2]/2) > ((im0.shape[1]/2)+75))]
+                    box_left = [x for x in outputs[i] if (int(x[0]+x[2]/2) <= ((im0.shape[1]/2)+75))]
+                    box_right = [x for x in outputs[i] if (int(x[0]+x[2]/2) > ((im0.shape[1]/2)+75))]
                 total = len(box_left)+len(box_right)
                 cv2.putText(im0, f'KIRI : '+str(len(box_left)),(480,60), cv2.FONT_HERSHEY_PLAIN, 1.5, (0,0,255),2)
                 cv2.putText(im0, f'KANAN : '+str(len(box_right)), (480,85), cv2.FONT_HERSHEY_PLAIN, 1.5, (0,0,255),2)
