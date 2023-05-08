@@ -280,7 +280,7 @@ def run(
                 # cv2.putText(im0, f'TOTAL : '+str(total), (480,110), cv2.FONT_HERSHEY_PLAIN, 1.5, (0,0,255),2)
 
             else:
-                strongsort_list[i].increment_ages()
+                strongsort_list[i].increment_ages() 
                 print('No detections')
             
             if dataset.mode != 'image':

@@ -267,27 +267,11 @@ class LoadWebcam:  # for inference
 
 
 class LoadStreams:  # multiple IP or RTSP cameras
-    def __init__(self, sources='streams.txt', img_size=640, stride=32,checkpoint = None):
+    def __init__(self, sources='streams.txt', img_size=640, stride=32):
         self.mode = 'stream'
         self.img_size = img_size
         self.stride = stride
-        self.checkpoint = checkpoint
         
-         # ImageEnhance
-        # device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        # model = PhysicalNN()
-        # model = torch.nn.DataParallel(model).to(device)
-        # print("=> loading trained model")
-        # checkpoint = torch.load(checkpoint, map_location=device)
-        # model.load_state_dict(checkpoint['state_dict'])
-        # print("=> loaded model at epoch {}".format(checkpoint['epoch']))
-        # model = model.module
-        # model.eval()
-
-        # testtransform = transforms.Compose([
-        #             transforms.ToTensor(),
-        #         ])
-        # unloader = transforms.ToPILImage()
         
         if os.path.isfile(sources):
             with open(sources, 'r') as f:
@@ -313,6 +297,7 @@ class LoadStreams:  # multiple IP or RTSP cameras
             self.fps = cap.get(cv2.CAP_PROP_FPS) % 100
 
             _, self.imgs[i] = cap.read()  # guarantee first frame
+            
             thread = Thread(target=self.update, args=([i, cap]), daemon=True)
             print(f' success ({w}x{h} at {self.fps:.2f} FPS).')
             thread.start()
@@ -344,6 +329,7 @@ class LoadStreams:  # multiple IP or RTSP cameras
     def __next__(self):
         self.count += 1
         img0 = self.imgs.copy()
+        # print(len(self.imgs),type(img0))
         if cv2.waitKey(1) == ord('q'):  # q to quit
             cv2.destroyAllWindows()
             raise StopIteration
