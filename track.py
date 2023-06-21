@@ -1,5 +1,5 @@
 import argparse
-
+import pandas as pd
 import os
 # limit the number of cpus used by high performance libraries
 os.environ["OMP_NUM_THREADS"] = "1"
@@ -126,20 +126,20 @@ def run(
     
     # ImageEnhancement
     # Load model
-    checkpoint = "./PyTorch_UnderwaterImageEnhancement/checkpoints/model_best_2842.pth.tar"
-    model_enc = PhysicalNN()
-    model_enc = torch.nn.DataParallel(model_enc).to(device)
-    print("=> loading trained model")
-    checkpoint = torch.load(checkpoint, map_location=device)
-    model_enc.load_state_dict(checkpoint['state_dict'])
-    print("=> loaded model at epoch {}".format(checkpoint['epoch']))
-    model_enc = model_enc.module
-    model_enc.eval()
+    # checkpoint = "./PyTorch_UnderwaterImageEnhancement/checkpoints/model_best_2842.pth.tar"
+    # model_enc = PhysicalNN()
+    # model_enc = torch.nn.DataParallel(model_enc).to(device)
+    # print("=> loading trained model")
+    # checkpoint = torch.load(checkpoint, map_location=device)
+    # model_enc.load_state_dict(checkpoint['state_dict'])
+    # print("=> loaded model at epoch {}".format(checkpoint['epoch']))
+    # model_enc = model_enc.module
+    # model_enc.eval()
 
-    testtransform = transforms.Compose([
-                transforms.ToTensor(),
-            ])
-    unloader = transforms.ToPILImage()
+    # testtransform = transforms.Compose([
+    #             transforms.ToTensor(),
+    #         ])
+    # unloader = transforms.ToPILImage()
 
 
     # Create as many strong sort instances as there are video sources
@@ -169,6 +169,7 @@ def run(
     dt, seen = [0.0, 0.0, 0.0, 0.0], 0
     curr_frames, prev_frames = [None] * nr_sources, [None] * nr_sources
     t0 = time.time()
+    graph_fps = []
     for frame_idx, (path, im, im0s, vid_cap) in enumerate(dataset):
         s = ''
         t1 = time_synchronized()
@@ -211,11 +212,11 @@ def run(
                     txt_file_name = p.parent.name  # get folder name containing current img
                     save_path = str(save_dir / p.parent.name)  # im.jpg, vid.mp4, ...
                     
-            inp = testtransform(im0).unsqueeze(0)
-            inp = inp.to(device)
-            out = model_enc(inp)
-            corrected = unloader(out.cpu().squeeze(0))
-            im0 = np.array(corrected)
+            # inp = testtransform(im0).unsqueeze(0)
+            # inp = inp.to(device)
+            # out = model_enc(inp)
+            # corrected = unloader(out.cpu().squeeze(0))
+            # im0 = np.array(corrected)
             curr_frames[i] = im0
 
             txt_path = str(save_dir / 'tracks' / txt_file_name)  # im.txt
@@ -278,7 +279,7 @@ def run(
                 # cv2.putText(im0, f'KIRI : '+str(len(box_left)),(480,60), cv2.FONT_HERSHEY_PLAIN, 1.5, (0,0,255),2)
                 # cv2.putText(im0, f'KANAN : '+str(len(box_right)), (480,85), cv2.FONT_HERSHEY_PLAIN, 1.5, (0,0,255),2)
                 # cv2.putText(im0, f'TOTAL : '+str(total), (480,110), cv2.FONT_HERSHEY_PLAIN, 1.5, (0,0,255),2)
-
+            
             else:
                 strongsort_list[i].increment_ages() 
                 print('No detections')
@@ -288,22 +289,25 @@ def run(
                 
                 fps = 1/(currentTime-t0)
                 t0= currentTime
-                cv2.putText(im0, f'FPS : '+str(int(fps)), (20,70), cv2.FONT_HERSHEY_PLAIN, 2, (0,255,0),2)
-                put_line_middle(im0,im0.shape)
-                if outputs[i] is None:
-                    box_left = []
-                    box_right = []
-                else :
-                    box_left = [x for x in outputs[i] if (int(x[0]+x[2]/2) <= ((im0.shape[1]/2)+75))]
-                    box_right = [x for x in outputs[i] if (int(x[0]+x[2]/2) > ((im0.shape[1]/2)+75))]
-                total = len(box_left)+len(box_right)
-                cv2.putText(im0, f'KIRI : '+str(len(box_left)),(480,60), cv2.FONT_HERSHEY_PLAIN, 1.5, (0,0,255),2)
-                cv2.putText(im0, f'KANAN : '+str(len(box_right)), (480,85), cv2.FONT_HERSHEY_PLAIN, 1.5, (0,0,255),2)
-                cv2.putText(im0, f'TOTAL : '+str(total), (480,110), cv2.FONT_HERSHEY_PLAIN, 1.5, (0,0,255),2)
+                total_det = str(0) if len(det) == 0 else str(len(det))
+                cv2.putText(im0, f'FPS : '+str(int(fps)), (20,70), cv2.FONT_HERSHEY_PLAIN, 2, (0,0,255),2)
+                cv2.putText(im0,f"Total : {total_det}",(im0.shape[1]-190,70),cv2.FONT_HERSHEY_SIMPLEX,1,(0,0,255),2)   
+                graph_fps.append([total_det,fps])
+                # put_line_middle(im0,im0.shape)
+                # if outputs[i] is None:
+                #     box_left = []
+                #     box_right = []
+                # else :
+                #     box_left = [x for x in outputs[i] if (int(x[0]+x[2]/2) <= ((im0.shape[1]/2)+75))]
+                #     box_right = [x for x in outputs[i] if (int(x[0]+x[2]/2) > ((im0.shape[1]/2)+75))]
+                # total = len(box_left)+len(box_right)
+                # cv2.putText(im0, f'KIRI : '+str(len(box_left)),(480,60), cv2.FONT_HERSHEY_PLAIN, 1.5, (0,0,255),2)
+                # cv2.putText(im0, f'KANAN : '+str(len(box_right)), (480,85), cv2.FONT_HERSHEY_PLAIN, 1.5, (0,0,255),2)
+                # cv2.putText(im0, f'TOTAL : '+str(total), (480,110), cv2.FONT_HERSHEY_PLAIN, 1.5, (0,0,255),2)
                 
             # Stream resultss
             if show_vid:
-                cv2.imshow(f"LAYAR", im0)
+                cv2.imshow(f"Layar Monitoring", im0)
                 cv2.waitKey(1)  # 1 millisecond
 
             # Save results (image with detections)
@@ -321,8 +325,12 @@ def run(
                     save_path = str(Path(save_path).with_suffix('.mp4'))  # force *.mp4 suffix on results videos
                     vid_writer[i] = cv2.VideoWriter(save_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (w, h))
                 vid_writer[i].write(im0)
-
+        
             prev_frames[i] = curr_frames[i]
+            # end_time = time.time()
+        df = pd.DataFrame(graph_fps,columns=['num_detect','fps'])
+        df.to_csv('hasil_fps_akhir.csv',index=False)
+        # cv2.putText(im0,str(f"FPS : {1/(time.time()-t0):.1f}"),(20,30),cv2.FONT_HERSHEY_SIMPLEX,1,(0,0,255),2)
 
     # Print results
     t = tuple(x / seen * 1E3 for x in dt)  # speeds per image

@@ -9,8 +9,9 @@ import gdown
 from os.path import exists as file_exists
 from .deep.reid_model_factory import show_downloadeable_models, get_model_url, get_model_name
 
-from torchreid.utils import FeatureExtractor
-from torchreid.utils.tools import download_url
+from torchreid import utils
+# from torchreid.utils import FeatureExtractor
+# from torchreid.utils.tools import download_url
 
 
 def check_suffix(file='yolov5s.pt', suffix=('.pt',), msg=''):
@@ -45,7 +46,7 @@ class ReIDDetectMultiBackend(nn.Module):
                 show_downloadeable_models()
                 exit()
 
-            self.extractor = FeatureExtractor(
+            self.extractor = utils.FeatureExtractor(
                 # get rid of dataset information DeepSort model name
                 model_name=model_name,
                 model_path=weights,

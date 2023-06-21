@@ -3,7 +3,8 @@ import numpy as np
 import sys
 import torch
 sys.path.append('strong_sort/deep/reid')
-from torchreid.metrics.distance import compute_distance_matrix
+from torchreid import metrics
+# from torchreid.metrics import compute_distance_matrix
 
 
 def _pdist(a, b):
@@ -68,7 +69,7 @@ def _nn_euclidean_distance(x, y):
     """
     x_ = torch.from_numpy(np.asarray(x) / np.linalg.norm(x, axis=1, keepdims=True))
     y_ = torch.from_numpy(np.asarray(y) / np.linalg.norm(y, axis=1, keepdims=True))
-    distances = compute_distance_matrix(x_, y_, metric='euclidean')
+    distances = metrics.compute_distance_matrix(x_, y_, metric='euclidean')
     return np.maximum(0.0, torch.min(distances, axis=0)[0].numpy())
 
 
@@ -88,7 +89,7 @@ def _nn_cosine_distance(x, y):
     """
     x_ = torch.from_numpy(np.asarray(x))
     y_ = torch.from_numpy(np.asarray(y))
-    distances = compute_distance_matrix(x_, y_, metric='cosine')
+    distances = metrics.compute_distance_matrix(x_, y_, metric='cosine')
     distances = distances.cpu().detach().numpy()
     return distances.min(axis=0)
 

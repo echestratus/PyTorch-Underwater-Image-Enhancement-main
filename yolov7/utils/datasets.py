@@ -19,7 +19,7 @@ import torch.nn.functional as F
 from PIL import Image, ExifTags
 from torch.utils.data import Dataset
 from tqdm import tqdm
-
+import sys
 import pickle
 from copy import deepcopy
 #from pycocotools import mask as maskUtils
@@ -29,15 +29,26 @@ from torchvision.ops import roi_pool, roi_align, ps_roi_pool, ps_roi_align
 from utils.general import check_requirements, xyxy2xywh, xywh2xyxy, xywhn2xyxy, xyn2xy, segment2box, segments2boxes, \
     resample_segments, clean_str
 from utils.torch_utils import torch_distributed_zero_first
-
-from PyTorch_UnderwaterImageEnhancement.model import PhysicalNN
 from torchvision import transforms
+
+
+FILE = Path(__file__).resolve()
+ROOT = FILE.parents[0]
+
+if str(ROOT / 'PyTorch_UnderwaterImageEnhancement') not in sys.path:
+    sys.path.append(str(ROOT / 'PyTorch_UnderwaterImageEnhancement'))
+    
+from PyTorch_UnderwaterImageEnhancement.model import PhysicalNN
+
 
 # Parameters
 help_url = 'https://github.com/ultralytics/yolov5/wiki/Train-Custom-Data'
 img_formats = ['bmp', 'jpg', 'jpeg', 'png', 'tif', 'tiff', 'dng', 'webp', 'mpo']  # acceptable image suffixes
 vid_formats = ['mov', 'avi', 'mp4', 'mpg', 'mpeg', 'm4v', 'wmv', 'mkv']  # acceptable video suffixes
 logger = logging.getLogger(__name__)
+
+
+
 
 # Get orientation exif tag
 for orientation in ExifTags.TAGS.keys():
@@ -130,6 +141,26 @@ class _RepeatSampler(object):
 
 class LoadImages:  # for inference
     def __init__(self, path, img_size=640, stride=32):
+        # ImageEnhancement
+        global testtransform
+        global unloader
+        global model_enhance
+        global device_enhance
+        checkpoint = r"PyTorch_UnderwaterImageEnhancement/checkpoints/model_best_2842.pth.tar"
+        device_enhance = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        model_enhance = PhysicalNN()
+        model_enhance = torch.nn.DataParallel(model_enhance).to(device_enhance)
+        print("=> loading trained model")
+        checkpoint = torch.load(checkpoint, map_location=device_enhance)
+        model_enhance.load_state_dict(checkpoint['state_dict'])
+        print("=> loaded model at epoch {}".format(checkpoint['epoch']))
+        model_enhance = model_enhance.module
+        model_enhance.eval()
+
+        testtransform = transforms.Compose([
+                    transforms.ToTensor(),
+                ])
+        unloader = transforms.ToPILImage()
         p = str(Path(path).absolute())  # os-agnostic absolute path
         if '*' in p:
             files = sorted(glob.glob(p, recursive=True))  # glob
@@ -170,6 +201,11 @@ class LoadImages:  # for inference
             # Read video
             self.mode = 'video'
             ret_val, img0 = self.cap.read()
+            inp = testtransform(img0).unsqueeze(0)
+            inp = inp.to(device_enhance)
+            out = model_enhance(inp)
+            corrected = unloader(out.cpu().squeeze(0))
+            img0 = np.array(corrected)
             if not ret_val:
                 self.count += 1
                 self.cap.release()
@@ -268,11 +304,30 @@ class LoadWebcam:  # for inference
 
 class LoadStreams:  # multiple IP or RTSP cameras
     def __init__(self, sources='streams.txt', img_size=640, stride=32):
+        # ImageEnhancement
+        global testtransform
+        global unloader
+        global model_enhance
+        global device_enhance
+        checkpoint = r"PyTorch_UnderwaterImageEnhancement/checkpoints/model_best_2842.pth.tar"
+        device_enhance = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        model_enhance = PhysicalNN()
+        model_enhance = torch.nn.DataParallel(model_enhance).to(device_enhance)
+        print("=> loading trained model")
+        checkpoint = torch.load(checkpoint, map_location=device_enhance)
+        model_enhance.load_state_dict(checkpoint['state_dict'])
+        print("=> loaded model at epoch {}".format(checkpoint['epoch']))
+        model_enhance = model_enhance.module
+        model_enhance.eval()
+
+        testtransform = transforms.Compose([
+                    transforms.ToTensor(),
+                ])
+        unloader = transforms.ToPILImage()
         self.mode = 'stream'
         self.img_size = img_size
         self.stride = stride
-        
-        
+
         if os.path.isfile(sources):
             with open(sources, 'r') as f:
                 sources = [x.strip() for x in f.read().strip().splitlines() if len(x.strip())]
@@ -284,6 +339,7 @@ class LoadStreams:  # multiple IP or RTSP cameras
         self.sources = [clean_str(x) for x in sources]  # clean source names for later
         for i, s in enumerate(sources):
             # Start the thread to read frames from the video stream
+            
             print(f'{i + 1}/{n}: {s}... ', end='')
             url = eval(s) if s.isnumeric() else s
             if 'youtube.com/' in str(url) or 'youtu.be/' in str(url):  # if source is YouTube video
@@ -297,7 +353,11 @@ class LoadStreams:  # multiple IP or RTSP cameras
             self.fps = cap.get(cv2.CAP_PROP_FPS) % 100
 
             _, self.imgs[i] = cap.read()  # guarantee first frame
-            
+            inp = testtransform(self.imgs[i]).unsqueeze(0)
+            inp = inp.to(device_enhance)
+            out = model_enhance(inp)
+            corrected = unloader(out.cpu().squeeze(0))
+            self.imgs[i] = np.array(corrected)
             thread = Thread(target=self.update, args=([i, cap]), daemon=True)
             print(f' success ({w}x{h} at {self.fps:.2f} FPS).')
             thread.start()
@@ -310,17 +370,24 @@ class LoadStreams:  # multiple IP or RTSP cameras
             print('WARNING: Different stream shapes detected. For optimal performance supply similarly-shaped streams.')
 
     def update(self, index, cap):
+        
         # Read next stream frame in a daemon thread
         n = 0
         while cap.isOpened():
             n += 1
             # _, self.imgs[index] = cap.read()
             cap.grab()
-            if n == 4:  # read every 4th frame
+            if n == 10:  # read every 4th frame
                 success, im = cap.retrieve()
                 self.imgs[index] = im if success else self.imgs[index] * 0
+                inp = testtransform(self.imgs[index]).unsqueeze(0)
+                inp = inp.to(device_enhance)
+                out = model_enhance(inp)
+
+                corrected = unloader(out.cpu().squeeze(0))
+                self.imgs[index] = np.array(corrected)
                 n = 0
-            time.sleep(1 / self.fps)  # wait time
+            # time.sleep(1 / self.fps)  # wait time
 
     def __iter__(self):
         self.count = -1
@@ -329,7 +396,6 @@ class LoadStreams:  # multiple IP or RTSP cameras
     def __next__(self):
         self.count += 1
         img0 = self.imgs.copy()
-        # print(len(self.imgs),type(img0))
         if cv2.waitKey(1) == ord('q'):  # q to quit
             cv2.destroyAllWindows()
             raise StopIteration
@@ -343,6 +409,7 @@ class LoadStreams:  # multiple IP or RTSP cameras
         # Convert
         img = img[:, :, :, ::-1].transpose(0, 3, 1, 2)  # BGR to RGB, to bsx3x416x416
         img = np.ascontiguousarray(img)
+
         return self.sources, img, img0, None
 
     def __len__(self):
@@ -420,7 +487,7 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
                 x[:, 0] = 0
 
         n = len(shapes)  # number of images
-        bi = np.floor(np.arange(n) / batch_size).astype(np.int)  # batch index
+        bi = np.floor(np.arange(n) / batch_size).astype(int)  # batch index
         nb = bi[-1] + 1  # number of batches
         self.batch = bi  # batch index of image
         self.n = n
@@ -448,7 +515,7 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
                 elif mini > 1:
                     shapes[i] = [1, 1 / mini]
 
-            self.batch_shapes = np.ceil(np.array(shapes) * img_size / stride + pad).astype(np.int) * stride
+            self.batch_shapes = np.ceil(np.array(shapes) * img_size / stride + pad).astype(int) * stride
 
         # Cache images into memory for faster training (WARNING: large datasets may exceed system RAM)
         self.imgs = [None] * n
@@ -1001,10 +1068,6 @@ def letterbox(img, new_shape=(640, 640), color=(114, 114, 114), auto=True, scale
     ratio = r, r  # width, height ratios
     new_unpad = int(round(shape[1] * r)), int(round(shape[0] * r))
     dw, dh = new_shape[1] - new_unpad[0], new_shape[0] - new_unpad[1]  # wh padding
-    
-    if isinstance(stride, torch.Tensor) and stride.is_cuda:
-        stride = stride.cpu().numpy()
-        
     if auto:  # minimum rectangle
         dw, dh = np.mod(dw, stride), np.mod(dh, stride)  # wh padding
     elif scaleFill:  # stretch
@@ -1017,9 +1080,8 @@ def letterbox(img, new_shape=(640, 640), color=(114, 114, 114), auto=True, scale
 
     if shape[::-1] != new_unpad:  # resize
         img = cv2.resize(img, new_unpad, interpolation=cv2.INTER_LINEAR)
-
-    top, bottom = int(round(float(dh) - 0.1)), int(round(float(dh) + 0.1))
-    left, right = int(round(float(dw) - 0.1)), int(round(float(dw) + 0.1))
+    top, bottom = int(np.round(dh - 0.1)), int(np.round(dh + 0.1))
+    left, right = int(np.round(dw - 0.1)), int(np.round(dw + 0.1))
     img = cv2.copyMakeBorder(img, top, bottom, left, right, cv2.BORDER_CONSTANT, value=color)  # add border
     return img, ratio, (dw, dh)
 
@@ -1210,7 +1272,7 @@ def pastein(image, labels, sample_labels, sample_images, sample_masks):
                 r_image = cv2.resize(sample_images[sel_ind], (r_w, r_h))
                 temp_crop = image[ymin:ymin+r_h, xmin:xmin+r_w]
                 m_ind = r_mask > 0
-                if m_ind.astype(np.int).sum() > 60:
+                if m_ind.astype(np.int32).sum() > 60:
                     temp_crop[m_ind] = r_image[m_ind]
                     #print(sample_labels[sel_ind])
                     #print(sample_images[sel_ind].shape)
