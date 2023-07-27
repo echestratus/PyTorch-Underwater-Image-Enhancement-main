@@ -161,6 +161,7 @@ class LoadImages:  # for inference
                     transforms.ToTensor(),
                 ])
         unloader = transforms.ToPILImage()
+        
         p = str(Path(path).absolute())  # os-agnostic absolute path
         if '*' in p:
             files = sorted(glob.glob(p, recursive=True))  # glob
